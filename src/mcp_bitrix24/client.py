@@ -1,5 +1,6 @@
 import httpx
 import os
+from datetime import date, timedelta
 from typing import Any
 
 
@@ -84,13 +85,16 @@ class BitrixClient:
         self,
         responsible_id: int | None = None,
         overdue_only: bool = False,
+        due_today: bool = False,
         start: int = 0,
     ) -> list[dict]:
         filter: dict[str, Any] = {"!STATUS": 5}
         if responsible_id:
             filter["RESPONSIBLE_ID"] = responsible_id
         if overdue_only:
-            from datetime import date
+            filter["<=DEADLINE"] = date.today().isoformat()
+        if due_today:
+            filter[">=DEADLINE"] = date.today().isoformat()
             filter["<=DEADLINE"] = date.today().isoformat()
 
         params: dict[str, Any] = {
@@ -103,3 +107,20 @@ class BitrixClient:
         if isinstance(result, dict):
             return result.get("tasks", [])
         return []
+
+    def list_dormant_deals(self, days: int = 20) -> list[dict]:
+        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        return self.list_deals(
+            filter={"<=DATE_MODIFY": cutoff, "CLOSED": "N"},
+            select=["ID", "TITLE", "STAGE_ID", "DATE_MODIFY", "ASSIGNED_BY_ID", "OPPORTUNITY", "CURRENCY_ID"],
+            order={"DATE_MODIFY": "ASC"},
+        )
+
+    def list_closing_this_week(self) -> list[dict]:
+        today = date.today().isoformat()
+        next_week = (date.today() + timedelta(days=7)).isoformat()
+        return self.list_deals(
+            filter={">=CLOSEDATE": today, "<=CLOSEDATE": next_week, "CLOSED": "N"},
+            select=["ID", "TITLE", "STAGE_ID", "CLOSEDATE", "OPPORTUNITY", "CURRENCY_ID", "ASSIGNED_BY_ID"],
+            order={"CLOSEDATE": "ASC"},
+        )

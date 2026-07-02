@@ -186,6 +186,69 @@ def list_tasks(
     return "\n".join(lines)
 
 
+@mcp.tool()
+def daily_briefing(dormant_days: int = 20) -> str:
+    """
+    Gera um briefing consolidado do dia: tarefas atrasadas, tarefas para hoje,
+    deals dormentes e deals com fechamento previsto para esta semana.
+    dormant_days: quantos dias sem atividade para considerar um deal dormente (padrão: 20).
+    """
+    from datetime import date
+    today = date.today().strftime("%d/%m/%Y")
+    sections = [f"BRIEFING DO DIA — {today}\n"]
+
+    # Tarefas atrasadas
+    overdue = client.list_tasks(overdue_only=True)
+    if overdue:
+        sections.append(f"TAREFAS ATRASADAS ({len(overdue)})")
+        for t in overdue[:10]:
+            deal = (t.get("ufCrmTask") or [""])[0]
+            deadline = (t.get("deadline") or "sem prazo")[:10]
+            sections.append(f"  • [{t.get('id')}] {t.get('title')} | prazo: {deadline} | deal: {deal}")
+    else:
+        sections.append("TAREFAS ATRASADAS\n  Nenhuma.")
+
+    sections.append("")
+
+    # Tarefas para hoje
+    today_tasks = client.list_tasks(due_today=True)
+    if today_tasks:
+        sections.append(f"TAREFAS PARA HOJE ({len(today_tasks)})")
+        for t in today_tasks[:10]:
+            deal = (t.get("ufCrmTask") or [""])[0]
+            sections.append(f"  • [{t.get('id')}] {t.get('title')} | deal: {deal}")
+    else:
+        sections.append("TAREFAS PARA HOJE\n  Nenhuma.")
+
+    sections.append("")
+
+    # Deals dormentes
+    dormant = client.list_dormant_deals(days=dormant_days)
+    if dormant:
+        sections.append(f"DEALS DORMENTES — sem atividade há +{dormant_days} dias ({len(dormant)})")
+        for d in dormant[:10]:
+            modified = (d.get("DATE_MODIFY") or "")[:10]
+            valor = f"{d.get('OPPORTUNITY', '0')} {d.get('CURRENCY_ID', '')}"
+            sections.append(f"  • [{d['ID']}] {d['TITLE']} | estágio: {d.get('STAGE_ID')} | último update: {modified} | valor: {valor}")
+    else:
+        sections.append(f"DEALS DORMENTES\n  Nenhum deal parado há mais de {dormant_days} dias.")
+
+    sections.append("")
+
+    # Forecast da semana
+    closing = client.list_closing_this_week()
+    if closing:
+        sections.append(f"FECHAMENTO PREVISTO ESTA SEMANA ({len(closing)})")
+        for d in closing[:10]:
+            closedate = (d.get("CLOSEDATE") or "")[:10]
+            valor = f"{d.get('OPPORTUNITY', '0')} {d.get('CURRENCY_ID', '')}"
+            sections.append(f"  • [{d['ID']}] {d['TITLE']} | fechamento: {closedate} | valor: {valor}")
+    else:
+        sections.append("FECHAMENTO PREVISTO ESTA SEMANA\n  Nenhum deal.")
+
+    return "\n".join(sections)
+
+
 def main():
     mcp.run(transport="stdio")
 
