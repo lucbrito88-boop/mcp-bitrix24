@@ -12,6 +12,8 @@ Após configurar, você pode pedir ao Claude coisas como:
 - *"Mova o deal 456 para a etapa de negociação"*
 - *"Adicione uma nota no deal 789: reunião realizada com sucesso"*
 - *"Quais são os estágios do meu funil?"*
+- *"Liste minhas tarefas atrasadas"*
+- *"Quais tarefas estão pendentes para o responsável 42?"*
 
 ## Ferramentas disponíveis
 
@@ -25,6 +27,7 @@ Após configurar, você pode pedir ao Claude coisas como:
 | `list_stages` | Lista os estágios disponíveis no funil |
 | `add_comment` | Adiciona nota/comentário a um deal |
 | `add_task` | Cria uma tarefa vinculada a um deal |
+| `list_tasks` | Lista tarefas pendentes; filtra por responsável ou só atrasadas |
 | `list_pipelines` | Lista os funis de deals disponíveis |
 
 ## Pré-requisitos
@@ -95,10 +98,12 @@ Feche e reabra o Claude Code. O MCP server `bitrix24` deve aparecer disponível.
 
 ```
 bitrix24-mcp/
-├── server.py          # MCP server — define as ferramentas expostas ao Claude
-├── bitrix_client.py   # Wrapper da API REST do Bitrix24
-├── requirements.txt   # Dependências Python
-├── .env.example       # Template de configuração
+├── src/mcp_bitrix24/
+│   ├── server.py        # MCP server — define as ferramentas expostas ao Claude
+│   └── client.py        # Wrapper da API REST do Bitrix24
+├── pyproject.toml       # Configuração do pacote (PyPI)
+├── requirements.txt     # Dependências Python
+├── .env.example         # Template de configuração
 └── .gitignore
 ```
 
@@ -111,5 +116,5 @@ bitrix24-mcp/
 ## Segurança
 
 - O arquivo `.env` está no `.gitignore` — nunca commite suas credenciais
-- O webhook do Bitrix24 deve ter apenas as permissões necessárias (CRM)
+- O webhook do Bitrix24 deve ter permissões de CRM e Tarefas (task)
 - Recomenda-se criar um usuário de serviço dedicado no Bitrix24 para o webhook
