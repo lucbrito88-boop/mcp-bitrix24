@@ -162,12 +162,14 @@ def list_pipelines() -> str:
 def list_tasks(
     responsible_id: int = 0,
     overdue_only: bool = False,
+    due_this_week: bool = False,
     limit: int = 20,
 ) -> str:
-    """Lista tarefas pendentes do Bitrix24. overdue_only=true retorna só as atrasadas."""
+    """Lista tarefas pendentes do Bitrix24. overdue_only=true retorna só as atrasadas. due_this_week=true retorna tarefas com prazo nos próximos 7 dias."""
     tasks = client.list_tasks(
         responsible_id=responsible_id or None,
         overdue_only=overdue_only,
+        due_this_week=due_this_week,
     )
     tasks = tasks[:limit]
 

@@ -86,6 +86,7 @@ class BitrixClient:
         responsible_id: int | None = None,
         overdue_only: bool = False,
         due_today: bool = False,
+        due_this_week: bool = False,
         start: int = 0,
     ) -> list[dict]:
         filter: dict[str, Any] = {"!STATUS": 5}
@@ -96,6 +97,9 @@ class BitrixClient:
         if due_today:
             filter[">=DEADLINE"] = date.today().isoformat()
             filter["<=DEADLINE"] = date.today().isoformat()
+        if due_this_week:
+            filter[">=DEADLINE"] = date.today().isoformat()
+            filter["<=DEADLINE"] = (date.today() + timedelta(days=7)).isoformat()
 
         params: dict[str, Any] = {
             "filter": filter,
