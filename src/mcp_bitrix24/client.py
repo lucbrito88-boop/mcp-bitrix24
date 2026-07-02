@@ -96,6 +96,7 @@ class BitrixClient:
         params: dict[str, Any] = {
             "filter": filter,
             "select": ["ID", "TITLE", "DEADLINE", "RESPONSIBLE_ID", "STATUS", "UF_CRM_TASK"],
+            "order": {"ID": "desc"},
             "start": start,
         }
         result = self._call("tasks.task.list", params)
