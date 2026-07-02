@@ -191,15 +191,50 @@ def list_tasks(
 @mcp.tool()
 def daily_briefing(dormant_days: int = 20) -> str:
     """
-    Gera um briefing consolidado do dia: tarefas atrasadas, tarefas para hoje,
-    deals dormentes e deals com fechamento previsto para esta semana.
-    dormant_days: quantos dias sem atividade para considerar um deal dormente (padrão: 20).
+    Gera o briefing diário completo de pré-vendas:
+    - Principais deals qualificados/forecast
+    - Deals sem qualificação (viável, diferencial, RO)
+    - Tarefas atrasadas
+    - Tarefas desta semana
+    - Deals dormentes
+    - Fechamento previsto esta semana
+    dormant_days: dias sem atividade para considerar dormente (padrão: 20).
     """
     from datetime import date
     today = date.today().strftime("%d/%m/%Y")
     sections = [f"BRIEFING DO DIA — {today}\n"]
 
-    # Tarefas atrasadas
+    # 1. Principais deals
+    top = client.list_top_deals(limit=10)
+    if top:
+        sections.append(f"PRINCIPAIS DEALS ({len(top)})")
+        for d in top:
+            valor = f"R$ {float(d.get('OPPORTUNITY') or 0):,.0f}".replace(",", ".")
+            closedate = (d.get("CLOSEDATE") or "")[:10]
+            sections.append(
+                f"  • [{d['ID']}] {d['TITLE']}\n"
+                f"    {d['_qualificacao']} | {valor} | fecha: {closedate} | "
+                f"Viável: {d['_viavel']} | Diferencial: {d['_diferencial']} | RO: {d['_ro'] or '—'}"
+            )
+    else:
+        sections.append("PRINCIPAIS DEALS\n  Nenhum deal qualificado/forecast.")
+    sections.append("")
+
+    # 2. Deals sem qualificação completa
+    unqual = client.list_unqualified_deals(limit=15)
+    if unqual:
+        sections.append(f"DEALS SEM QUALIFICAÇÃO COMPLETA ({len(unqual)})")
+        for d in unqual:
+            valor = f"R$ {float(d.get('OPPORTUNITY') or 0):,.0f}".replace(",", ".")
+            missing = ", ".join(d["_missing"])
+            sections.append(
+                f"  • [{d['ID']}] {d['TITLE']} | {valor} | faltando: {missing}"
+            )
+    else:
+        sections.append("DEALS SEM QUALIFICAÇÃO COMPLETA\n  Todos os deals em Pipeline estão qualificados.")
+    sections.append("")
+
+    # 3. Tarefas atrasadas
     overdue = client.list_tasks(overdue_only=True)
     if overdue:
         sections.append(f"TAREFAS ATRASADAS ({len(overdue)})")
@@ -209,42 +244,40 @@ def daily_briefing(dormant_days: int = 20) -> str:
             sections.append(f"  • [{t.get('id')}] {t.get('title')} | prazo: {deadline} | deal: {deal}")
     else:
         sections.append("TAREFAS ATRASADAS\n  Nenhuma.")
-
     sections.append("")
 
-    # Tarefas para hoje
-    today_tasks = client.list_tasks(due_today=True)
-    if today_tasks:
-        sections.append(f"TAREFAS PARA HOJE ({len(today_tasks)})")
-        for t in today_tasks[:10]:
+    # 4. Tarefas desta semana
+    week_tasks = client.list_tasks(due_this_week=True)
+    if week_tasks:
+        sections.append(f"TAREFAS DESTA SEMANA ({len(week_tasks)})")
+        for t in week_tasks[:10]:
             deal = (t.get("ufCrmTask") or [""])[0]
-            sections.append(f"  • [{t.get('id')}] {t.get('title')} | deal: {deal}")
+            deadline = (t.get("deadline") or "")[:10]
+            sections.append(f"  • [{t.get('id')}] {t.get('title')} | prazo: {deadline} | deal: {deal}")
     else:
-        sections.append("TAREFAS PARA HOJE\n  Nenhuma.")
-
+        sections.append("TAREFAS DESTA SEMANA\n  Nenhuma.")
     sections.append("")
 
-    # Deals dormentes
+    # 5. Deals dormentes
     dormant = client.list_dormant_deals(days=dormant_days)
     if dormant:
         sections.append(f"DEALS DORMENTES — sem atividade há +{dormant_days} dias ({len(dormant)})")
         for d in dormant[:10]:
             modified = (d.get("DATE_MODIFY") or "")[:10]
-            valor = f"{d.get('OPPORTUNITY', '0')} {d.get('CURRENCY_ID', '')}"
-            sections.append(f"  • [{d['ID']}] {d['TITLE']} | estágio: {d.get('STAGE_ID')} | último update: {modified} | valor: {valor}")
+            valor = f"R$ {float(d.get('OPPORTUNITY') or 0):,.0f}".replace(",", ".")
+            sections.append(f"  • [{d['ID']}] {d['TITLE']} | último update: {modified} | {valor}")
     else:
         sections.append(f"DEALS DORMENTES\n  Nenhum deal parado há mais de {dormant_days} dias.")
-
     sections.append("")
 
-    # Forecast da semana
+    # 6. Forecast da semana
     closing = client.list_closing_this_week()
     if closing:
         sections.append(f"FECHAMENTO PREVISTO ESTA SEMANA ({len(closing)})")
         for d in closing[:10]:
             closedate = (d.get("CLOSEDATE") or "")[:10]
-            valor = f"{d.get('OPPORTUNITY', '0')} {d.get('CURRENCY_ID', '')}"
-            sections.append(f"  • [{d['ID']}] {d['TITLE']} | fechamento: {closedate} | valor: {valor}")
+            valor = f"R$ {float(d.get('OPPORTUNITY') or 0):,.0f}".replace(",", ".")
+            sections.append(f"  • [{d['ID']}] {d['TITLE']} | fecha: {closedate} | {valor}")
     else:
         sections.append("FECHAMENTO PREVISTO ESTA SEMANA\n  Nenhum deal.")
 

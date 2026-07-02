@@ -128,3 +128,62 @@ class BitrixClient:
             select=["ID", "TITLE", "STAGE_ID", "CLOSEDATE", "OPPORTUNITY", "CURRENCY_ID", "ASSIGNED_BY_ID"],
             order={"CLOSEDATE": "ASC"},
         )
+
+    _QUAL_SELECT = [
+        "ID", "TITLE", "STAGE_ID", "OPPORTUNITY", "CURRENCY_ID",
+        "ASSIGNED_BY_ID", "CLOSEDATE",
+        "UF_CRM_1564075666375",  # qualificacao: Pipeline/Qualificado/Forecast
+        "UF_CRM_1706292905087",  # viavel tecnicamente: Sim/Nao/Sem Informacao
+        "UF_CRM_1706292722058",  # diferenciais tecnicos: Nenhum/Baixo/Medio/Alto
+        "UF_CRM_1581432810546",  # numero do RO
+    ]
+
+    # Mapa de IDs de opcao para valores legíveis
+    _VIAVEL_MAP = {"3617": "Sim", "3613": "Não", "3615": "Sem Info"}
+    _DIFER_MAP = {"3585": "Nenhum", "3587": "Baixo", "3589": "Médio", "3591": "Alto"}
+
+    def _resolve_qual(self, deal: dict) -> dict:
+        """Resolve campos de qualificação para valores legíveis."""
+        qual_id = str(deal.get("UF_CRM_1564075666375", "") or "")
+        qual_map = {"376": "Pipeline", "378": "Qualificado", "380": "Forecast"}
+        deal["_qualificacao"] = qual_map.get(qual_id, qual_id or "—")
+        viavel_id = str(deal.get("UF_CRM_1706292905087", "") or "")
+        deal["_viavel"] = self._VIAVEL_MAP.get(viavel_id, "—")
+        difer_id = str(deal.get("UF_CRM_1706292722058", "") or "")
+        deal["_diferencial"] = self._DIFER_MAP.get(difer_id, "—")
+        deal["_ro"] = deal.get("UF_CRM_1581432810546") or ""
+        return deal
+
+    def list_top_deals(self, limit: int = 10) -> list[dict]:
+        """Deals qualificados/forecast ordenados por valor."""
+        deals = self.list_deals(
+            filter={"CLOSED": "N", "UF_CRM_1564075666375": [378, 380]},
+            select=self._QUAL_SELECT,
+            order={"OPPORTUNITY": "DESC"},
+        )
+        return [self._resolve_qual(d) for d in deals[:limit]]
+
+    def list_unqualified_deals(self, limit: int = 20) -> list[dict]:
+        """Deals em Pipeline sem qualificação completa de pré-vendas."""
+        deals = self.list_deals(
+            filter={"CLOSED": "N", "UF_CRM_1564075666375": 376},
+            select=self._QUAL_SELECT,
+            order={"OPPORTUNITY": "DESC"},
+        )
+        result = []
+        for d in deals:
+            self._resolve_qual(d)
+            viavel = d["_viavel"]
+            diferencial = d["_diferencial"]
+            ro = d["_ro"]
+            missing = []
+            if viavel in ("—", "Sem Info", "Não"):
+                missing.append("Viável?")
+            if diferencial in ("—", "Nenhum"):
+                missing.append("Diferencial")
+            if not ro:
+                missing.append("N° RO")
+            d["_missing"] = missing
+            if missing:
+                result.append(d)
+        return result[:limit]
