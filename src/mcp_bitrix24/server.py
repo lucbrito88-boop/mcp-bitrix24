@@ -158,6 +158,34 @@ def list_pipelines() -> str:
     return "\n".join(lines)
 
 
+@mcp.tool()
+def list_tasks(
+    responsible_id: int = 0,
+    overdue_only: bool = False,
+    limit: int = 20,
+) -> str:
+    """Lista tarefas pendentes do Bitrix24. overdue_only=true retorna só as atrasadas."""
+    tasks = client.list_tasks(
+        responsible_id=responsible_id or None,
+        overdue_only=overdue_only,
+    )
+    tasks = tasks[:limit]
+
+    if not tasks:
+        return "Nenhuma tarefa encontrada."
+
+    lines = [f"Encontradas {len(tasks)} tarefas:\n"]
+    for t in tasks:
+        deadline = t.get("deadline") or t.get("DEADLINE") or "sem prazo"
+        crm_link = t.get("ufCrmTask") or t.get("UF_CRM_TASK") or ""
+        lines.append(
+            f"• [{t.get('id') or t.get('ID')}] {t.get('title') or t.get('TITLE')}\n"
+            f"  Prazo: {deadline} | Status: {t.get('status') or t.get('STATUS')}\n"
+            f"  Responsável ID: {t.get('responsibleId') or t.get('RESPONSIBLE_ID')} | CRM: {crm_link}"
+        )
+    return "\n".join(lines)
+
+
 def main():
     mcp.run(transport="stdio")
 

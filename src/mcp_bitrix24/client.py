@@ -79,3 +79,26 @@ class BitrixClient:
 
     def list_pipelines(self) -> list[dict]:
         return self._call("crm.dealcategory.list") or []
+
+    def list_tasks(
+        self,
+        responsible_id: int | None = None,
+        overdue_only: bool = False,
+        start: int = 0,
+    ) -> list[dict]:
+        filter: dict[str, Any] = {"!STATUS": 5}
+        if responsible_id:
+            filter["RESPONSIBLE_ID"] = responsible_id
+        if overdue_only:
+            from datetime import date
+            filter["<=DEADLINE"] = date.today().isoformat()
+
+        params: dict[str, Any] = {
+            "filter": filter,
+            "select": ["ID", "TITLE", "DEADLINE", "RESPONSIBLE_ID", "STATUS", "UF_CRM_TASK"],
+            "start": start,
+        }
+        result = self._call("tasks.task.list", params)
+        if isinstance(result, dict):
+            return result.get("tasks", [])
+        return []
